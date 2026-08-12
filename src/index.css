@@ -2,14 +2,23 @@
   box-sizing: border-box;
 }
 
+:root {
+  --bg-page: #f1f3f4;
+}
+
+[data-theme="dark"] {
+  --bg-page: #14171a;
+}
+
 html,
 body {
   margin: 0;
   padding: 0;
-  background: #f1f3f4;
+  background: var(--bg-page);
   min-height: 100vh;
   font-family: "Inter", -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
+  transition: background 0.15s ease;
 }
 
 #root {

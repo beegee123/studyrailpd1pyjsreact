@@ -1,11 +1,51 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
-const TRACKS = {
-  py: { name: "Python", color: "#2E6DA4" },
-  js: { name: "JavaScript", color: "#B8860B" },
-  rx: { name: "React", color: "#1B9C93" },
-  pd1: { name: "PD1 (Apex)", color: "#B5563C" },
-  ai: { name: "AI Engineering", color: "#7A5FBF" },
+const TRACK_NAMES = {
+  py: "Python",
+  js: "JavaScript",
+  rx: "React",
+  pd1: "PD1 (Apex)",
+  ai: "AI Engineering",
+};
+
+const TRACK_COLORS = {
+  light: { py: "#2E6DA4", js: "#B8860B", rx: "#1B9C93", pd1: "#B5563C", ai: "#7A5FBF" },
+  dark: { py: "#6FA8DC", js: "#E3BE55", rx: "#4DD0C4", pd1: "#E0876A", ai: "#AD93E8" },
+};
+
+const PALETTE = {
+  light: {
+    page: "#F1F3F4",
+    card: "#FFFFFF",
+    border: "#E1E4E6",
+    borderStrong: "#C7CCD1",
+    text: "#1C2226",
+    textSecondary: "#6B7280",
+    textMuted: "#9CA3AF",
+    rowHover: "#F7F8F9",
+    chipBg: "#F1F3F4",
+    chipHover: "#E9ECEE",
+    barTrack: "#EDEFF0",
+    emptyDot: "#E1E4E6",
+    currentBadgeBg: "#1C2226",
+    currentBadgeText: "#FFFFFF",
+  },
+  dark: {
+    page: "#14171A",
+    card: "#1C2024",
+    border: "#2A2E33",
+    borderStrong: "#3A3F45",
+    text: "#ECEEF0",
+    textSecondary: "#9AA1A9",
+    textMuted: "#6B7280",
+    rowHover: "#22262B",
+    chipBg: "#22262B",
+    chipHover: "#2A2E33",
+    barTrack: "#2A2E33",
+    emptyDot: "#2A2E33",
+    currentBadgeBg: "#ECEEF0",
+    currentBadgeText: "#14171A",
+  },
 };
 
 const WEEKS = [
@@ -67,6 +107,7 @@ const WEEKS = [
 
 const ALL_IDS = WEEKS.flatMap((w) => w.items.map((i) => i.id));
 const STORAGE_KEY = "study-progress-v1";
+const THEME_KEY = "study-tracker-theme";
 
 function loadProgress() {
   try {
@@ -77,9 +118,36 @@ function loadProgress() {
   }
 }
 
+function loadTheme() {
+  try {
+    const saved = localStorage.getItem(THEME_KEY);
+    if (saved === "dark" || saved === "light") return saved;
+  } catch {
+    // ignore
+  }
+  if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+    return "dark";
+  }
+  return "light";
+}
+
 export default function App() {
   const [done, setDone] = useState(loadProgress);
   const [error, setError] = useState(false);
+  const [theme, setTheme] = useState(loadTheme);
+
+  const isDark = theme === "dark";
+  const C = PALETTE[theme];
+  const trackColor = (key) => TRACK_COLORS[theme][key];
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    try {
+      localStorage.setItem(THEME_KEY, theme);
+    } catch {
+      // ignore, theme just won't persist
+    }
+  }, [theme]);
 
   const persist = (next) => {
     try {
@@ -114,52 +182,78 @@ export default function App() {
   const currentWeek = WEEKS.find((w) => w.items.some((i) => !done[i.id]));
 
   return (
-    <div style={{ minHeight: "100vh", padding: "2.5rem 1rem", display: "flex", justifyContent: "center" }}>
+    <div style={{ minHeight: "100vh", padding: "2.5rem 1rem", display: "flex", justifyContent: "center", background: C.page, transition: "background .15s ease" }}>
       <style>{`
-        .st-check { appearance: none; width: 20px; height: 20px; border-radius: 5px; border: 1.5px solid #C7CCD1; background: #fff; cursor: pointer; flex-shrink: 0; position: relative; transition: all .12s ease; }
+        .st-check { appearance: none; width: 20px; height: 20px; border-radius: 5px; border: 1.5px solid ${C.borderStrong}; background: ${C.card}; cursor: pointer; flex-shrink: 0; position: relative; transition: all .12s ease; }
         .st-check:checked { border-color: var(--tc); background: var(--tc); }
         .st-check:checked::after { content: ''; position: absolute; left: 6px; top: 2px; width: 5px; height: 10px; border: solid white; border-width: 0 2px 2px 0; transform: rotate(45deg); }
-        .st-row:hover { background: #F7F8F9; }
-        .st-reset:hover { background: #E9ECEE; }
+        .st-row:hover { background: ${C.rowHover}; }
+        .st-reset:hover { background: ${C.chipHover}; }
+        .st-toggle-track { transition: background .15s ease; }
+        .st-toggle-thumb { transition: transform .15s ease; }
         @media (max-width: 640px) { .st-rail { overflow-x: auto; } }
       `}</style>
 
-      <div style={{ width: "100%", maxWidth: "900px", fontFamily: "'Inter', sans-serif", color: "#1C2226" }}>
+      <div style={{ width: "100%", maxWidth: "900px", fontFamily: "'Inter', sans-serif", color: C.text }}>
 
         {/* Page header */}
-        <div style={{ marginBottom: "2rem" }}>
-          <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: "28px", letterSpacing: "-0.01em" }}>
-            Study rail
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "2rem", gap: "1rem" }}>
+          <div>
+            <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: "28px", letterSpacing: "-0.01em" }}>
+              Study rail
+            </div>
+            <div style={{ fontSize: "14px", color: C.textSecondary, marginTop: "4px" }}>
+              Python · JavaScript · React · PD1 (Apex) · AI Engineering — 13-week combined track
+            </div>
           </div>
-          <div style={{ fontSize: "14px", color: "#6B7280", marginTop: "4px" }}>
-            Python · JavaScript · React · PD1 (Apex) · AI Engineering — 13-week combined track
-          </div>
+
+          {/* Theme toggle */}
+          <button
+            onClick={() => setTheme(isDark ? "light" : "dark")}
+            aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+            style={{
+              flexShrink: 0, width: "52px", height: "28px", borderRadius: "14px",
+              border: `1px solid ${C.borderStrong}`, background: isDark ? "#3A3F45" : "#E1E4E6",
+              cursor: "pointer", position: "relative", padding: 0,
+            }}
+            className="st-toggle-track"
+          >
+            <div
+              className="st-toggle-thumb"
+              style={{
+                position: "absolute", top: "2px", left: isDark ? "26px" : "2px",
+                width: "22px", height: "22px", borderRadius: "50%",
+                background: isDark ? "#ECEEF0" : "#FFFFFF",
+                boxShadow: "0 1px 2px rgba(0,0,0,0.2)",
+              }}
+            />
+          </button>
         </div>
 
         {/* Summary row */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "1.5rem", flexWrap: "wrap", gap: "1rem" }}>
-          <div style={{ fontSize: "14px", color: "#6B7280" }}>
+          <div style={{ fontSize: "14px", color: C.textSecondary }}>
             {currentWeek ? `Currently in week ${currentWeek.n}` : "All tracks complete"}
           </div>
           <div style={{ textAlign: "right" }}>
             <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "30px", fontWeight: 500, lineHeight: 1 }}>{overallPct}%</div>
-            <div style={{ fontSize: "12px", color: "#6B7280" }}>{overallCompleted} of {overallTotal} sessions</div>
+            <div style={{ fontSize: "12px", color: C.textSecondary }}>{overallCompleted} of {overallTotal} sessions</div>
           </div>
         </div>
 
         {/* Per-track bars */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "10px", marginBottom: "1.5rem" }}>
-          {Object.entries(TRACKS).map(([key, t]) => {
+          {Object.entries(TRACK_NAMES).map(([key, name]) => {
             const { completed, total } = trackStats(key);
             const pct = total ? (completed / total) * 100 : 0;
             return (
-              <div key={key} style={{ background: "#fff", borderRadius: "10px", padding: "10px 12px", border: "1px solid #E1E4E6" }}>
+              <div key={key} style={{ background: C.card, borderRadius: "10px", padding: "10px 12px", border: `1px solid ${C.border}` }}>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", marginBottom: "6px" }}>
-                  <span style={{ fontWeight: 500 }}>{t.name}</span>
-                  <span style={{ color: "#6B7280", fontFamily: "'JetBrains Mono', monospace" }}>{completed}/{total}</span>
+                  <span style={{ fontWeight: 500 }}>{name}</span>
+                  <span style={{ color: C.textSecondary, fontFamily: "'JetBrains Mono', monospace" }}>{completed}/{total}</span>
                 </div>
-                <div style={{ height: "5px", borderRadius: "3px", background: "#EDEFF0", overflow: "hidden" }}>
-                  <div style={{ width: `${pct}%`, height: "100%", background: t.color, borderRadius: "3px", transition: "width .2s ease" }} />
+                <div style={{ height: "5px", borderRadius: "3px", background: C.barTrack, overflow: "hidden" }}>
+                  <div style={{ width: `${pct}%`, height: "100%", background: trackColor(key), borderRadius: "3px", transition: "width .2s ease" }} />
                 </div>
               </div>
             );
@@ -167,11 +261,11 @@ export default function App() {
         </div>
 
         {/* Rail visualization */}
-        <div className="st-rail" style={{ background: "#fff", border: "1px solid #E1E4E6", borderRadius: "12px", padding: "14px 16px", marginBottom: "1.5rem" }}>
+        <div className="st-rail" style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: "12px", padding: "14px 16px", marginBottom: "1.5rem" }}>
           <div style={{ display: "grid", gridTemplateColumns: "80px repeat(13, 1fr)", rowGap: "8px", columnGap: "4px", minWidth: "480px" }}>
-            {Object.entries(TRACKS).map(([key, t]) => (
+            {Object.entries(TRACK_NAMES).map(([key, name]) => (
               <div key={key} style={{ display: "contents" }}>
-                <div style={{ fontSize: "11px", color: "#6B7280", display: "flex", alignItems: "center" }}>{t.name.split(" ")[0]}</div>
+                <div style={{ fontSize: "11px", color: C.textSecondary, display: "flex", alignItems: "center" }}>{name.split(" ")[0]}</div>
                 {WEEKS.map((w) => {
                   const item = w.items.find((i) => i.track === key);
                   return (
@@ -182,13 +276,13 @@ export default function App() {
                             width: "9px",
                             height: "9px",
                             borderRadius: "50%",
-                            background: done[item.id] ? t.color : "#fff",
-                            border: `1.5px solid ${done[item.id] ? t.color : "#C7CCD1"}`,
+                            background: done[item.id] ? trackColor(key) : C.card,
+                            border: `1.5px solid ${done[item.id] ? trackColor(key) : C.borderStrong}`,
                           }}
                           title={`Week ${w.n}: ${item.label}`}
                         />
                       ) : (
-                        <div style={{ width: "4px", height: "4px", borderRadius: "50%", background: "#E1E4E6" }} />
+                        <div style={{ width: "4px", height: "4px", borderRadius: "50%", background: C.emptyDot }} />
                       )}
                     </div>
                   );
@@ -197,7 +291,7 @@ export default function App() {
             ))}
             <div />
             {WEEKS.map((w) => (
-              <div key={"n" + w.n} style={{ fontSize: "10px", color: "#9CA3AF", textAlign: "center", fontFamily: "'JetBrains Mono', monospace" }}>
+              <div key={"n" + w.n} style={{ fontSize: "10px", color: C.textMuted, textAlign: "center", fontFamily: "'JetBrains Mono', monospace" }}>
                 {w.n}
               </div>
             ))}
@@ -212,24 +306,24 @@ export default function App() {
               <div
                 key={w.n}
                 style={{
-                  background: "#fff",
+                  background: C.card,
                   borderRadius: "10px",
-                  border: `1px solid ${isCurrent ? "#C7CCD1" : "#E1E4E6"}`,
-                  borderLeft: isCurrent ? "3px solid #1C2226" : "1px solid #E1E4E6",
+                  border: `1px solid ${isCurrent ? C.borderStrong : C.border}`,
+                  borderLeft: isCurrent ? `3px solid ${C.text}` : `1px solid ${C.border}`,
                   padding: "10px 14px",
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
-                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "12px", color: "#6B7280" }}>WEEK {w.n}</span>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "12px", color: C.textSecondary }}>WEEK {w.n}</span>
                   {isCurrent && (
-                    <span style={{ fontSize: "10px", background: "#1C2226", color: "#fff", padding: "1px 7px", borderRadius: "10px" }}>
+                    <span style={{ fontSize: "10px", background: C.currentBadgeBg, color: C.currentBadgeText, padding: "1px 7px", borderRadius: "10px" }}>
                       current
                     </span>
                   )}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                   {w.items.map((item) => {
-                    const t = TRACKS[item.track];
+                    const tc = trackColor(item.track);
                     return (
                       <label
                         key={item.id}
@@ -239,7 +333,7 @@ export default function App() {
                         <input
                           type="checkbox"
                           className="st-check"
-                          style={{ "--tc": t.color }}
+                          style={{ "--tc": tc }}
                           checked={!!done[item.id]}
                           onChange={() => toggle(item.id)}
                         />
@@ -247,20 +341,20 @@ export default function App() {
                           style={{
                             fontSize: "11px",
                             fontWeight: 500,
-                            color: t.color,
-                            background: t.color + "1A",
+                            color: tc,
+                            background: tc + (isDark ? "26" : "1A"),
                             padding: "2px 8px",
                             borderRadius: "5px",
                             flexShrink: 0,
                           }}
                         >
-                          {t.name}
+                          {TRACK_NAMES[item.track]}
                         </span>
                         <span
                           style={{
                             fontSize: "14px",
                             textDecoration: done[item.id] ? "line-through" : "none",
-                            color: done[item.id] ? "#9CA3AF" : "#1C2226",
+                            color: done[item.id] ? C.textMuted : C.text,
                           }}
                         >
                           {item.label}
@@ -276,7 +370,7 @@ export default function App() {
 
         {/* Footer */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "1.5rem", paddingBottom: "2rem" }}>
-          <span style={{ fontSize: "12px", color: error ? "#B5563C" : "#9CA3AF" }}>
+          <span style={{ fontSize: "12px", color: error ? trackColor("pd1") : C.textMuted }}>
             {error ? "Couldn't save — check browser storage settings" : "Progress saves automatically on this device"}
           </span>
           <button
@@ -284,12 +378,12 @@ export default function App() {
             className="st-reset"
             style={{
               fontSize: "12px",
-              background: "#F1F3F4",
-              border: "1px solid #E1E4E6",
+              background: C.chipBg,
+              border: `1px solid ${C.border}`,
               borderRadius: "6px",
               padding: "6px 12px",
               cursor: "pointer",
-              color: "#6B7280",
+              color: C.textSecondary,
             }}
           >
             Reset all progress
