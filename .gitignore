@@ -1,0 +1,6 @@
+node_modules
+dist
+.vercel
+.railway
+.env
+.DS_Store
