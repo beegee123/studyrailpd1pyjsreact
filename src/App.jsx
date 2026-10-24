@@ -1,4 +1,11 @@
 import { useState, useEffect } from "react";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase =
+  import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY
+    ? createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_ANON_KEY)
+    : null;
+const SUPABASE_TABLE = "study_tracker_progress";
 
 const TRACK_NAMES = {
   py: "Python",
@@ -149,13 +156,56 @@ export default function App() {
     }
   }, [theme]);
 
-  const persist = (next) => {
+  // Load from Supabase on mount. If the cloud row doesn't exist yet,
+  // upload whatever this browser already has in localStorage.
+  useEffect(() => {
+    if (!supabase) return;
+    let cancelled = false;
+    (async () => {
+      const { data, error: loadError } = await supabase
+        .from(SUPABASE_TABLE)
+        .select("done")
+        .eq("id", 1)
+        .maybeSingle();
+      if (cancelled) return;
+      if (loadError) {
+        console.error("Supabase load failed", loadError);
+        return;
+      }
+      if (data) {
+        setDone(data.done || {});
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(data.done || {}));
+        } catch {
+          // ignore
+        }
+      } else {
+        const local = loadProgress();
+        await supabase.from(SUPABASE_TABLE).upsert({ id: 1, done: local });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const persist = async (next) => {
+    let ok = true;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      setError(false);
     } catch {
-      setError(true);
+      ok = false;
     }
+    if (supabase) {
+      const { error: saveError } = await supabase
+        .from(SUPABASE_TABLE)
+        .upsert({ id: 1, done: next, updated_at: new Date().toISOString() });
+      if (saveError) {
+        console.error("Supabase save failed", saveError);
+        ok = false;
+      }
+    }
+    setError(!ok);
   };
 
   const toggle = (id) => {
@@ -371,7 +421,11 @@ export default function App() {
         {/* Footer */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "1.5rem", paddingBottom: "2rem" }}>
           <span style={{ fontSize: "12px", color: error ? trackColor("pd1") : C.textMuted }}>
-            {error ? "Couldn't save — check browser storage settings" : "Progress saves automatically on this device"}
+            {error
+              ? "Couldn't save — check your connection"
+              : supabase
+                ? "Progress syncs automatically across devices"
+                : "Progress saves automatically on this device"}
           </span>
           <button
             onClick={resetAll}
